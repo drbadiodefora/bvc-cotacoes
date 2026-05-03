@@ -3,7 +3,7 @@ name: BVC - Cotações semanais
 on:
   schedule:
     # Executa todas às segundas-feiras às 8:00 UTC (7:00 em Cabo Verde)
-    - cron: '0 8 * * 1'
+    - cron: '0 7 * * 1'
   workflow_dispatch:   # permite executar manualmente a partir do GitHub
 
 jobs:
