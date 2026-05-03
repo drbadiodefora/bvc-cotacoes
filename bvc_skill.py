@@ -1,7 +1,8 @@
 # ============================================================
 # SKILL BVC - Cotações da Bolsa de Valores de Cabo Verde
-# Publica diretamente no WordPress.com com tabela, logos, setas,
-# categoria "NOTÍCIAS & ATUALIZAÇÕES" e tags "bvc", "cotação"
+# Publica diretamente no WordPress.com
+# Cabeçalho "Preço CVE", valores só com separador de milhar
+# Datas dd/MM/yy, variação duas casas, logo+texto sem quebra
 # ============================================================
 
 import collections
@@ -77,46 +78,77 @@ def obter_cotacoes():
         cols = linha.find_all("td")
         if len(cols) >= 4:
             sigla = cols[0].get_text(strip=True)
-            data = cols[1].get_text(strip=True)
+            data_raw = cols[1].get_text(strip=True)
+            data_str = data_raw.split()[0] if ' ' in data_raw else data_raw
+            # Converter dd/MM/yyyy -> dd/MM/yy
+            try:
+                data_obj = datetime.strptime(data_str, "%d/%m/%Y")
+                data = data_obj.strftime("%d/%m/%y")
+            except:
+                if '/' in data_str:
+                    partes = data_str.split('/')
+                    if len(partes) == 3 and len(partes[2]) == 4:
+                        data = f"{partes[0]}/{partes[1]}/{partes[2][-2:]}"
+                    else:
+                        data = data_str
+                else:
+                    data = data_str
             cotacao_raw = cols[2].get_text(strip=True).replace(',', '.')
-            variacao = cols[3].get_text(strip=True)
+            variacao_raw = cols[3].get_text(strip=True)
             if sigla:
-                cotacoes.append((sigla, data, cotacao_raw, variacao))
+                cotacoes.append((sigla, data, cotacao_raw, variacao_raw))
     return cotacoes
 
 # -------------------------------
-# FORMATAÇÃO HTML (TABELA + LOGOS + SETAS COLORIDAS)
+# FORMATAÇÃO DA VARIAÇÃO (sempre com duas casas decimais)
+# -------------------------------
+def formatar_variacao(var):
+    var_clean = var.replace('%', '').strip()
+    try:
+        num = float(var_clean)
+        return f"{num:.2f}%"
+    except:
+        return var
+
+# -------------------------------
+# FORMATAÇÃO HTML
 # -------------------------------
 def formatar_html(cotacoes):
     if not cotacoes:
         return "<p>⚠️ Nenhuma cotação disponível hoje.</p>"
     
-    html = '<table border="1" cellpadding="5" cellspacing="0" style="border-collapse: collapse; width:100%;">\n'
-    html += "<tr><th>Empresa</th><th>Data da Cotação</th><th>Preço</th><th>Variação</th></tr>\n"
+    data_atual = datetime.now().strftime("%d/%m/%y")
+    html = f'<p>Bom dia seguidor/a. Seguem abaixo as cotações das empresas no mercado de Cabo Verde, para o dia {data_atual}:</p>\n\n'
     
-    for sigla, data, cot_raw, var in cotacoes:
+    html += '<table border="1" cellpadding="5" cellspacing="0" style="border-collapse: collapse; width:100%;">\n'
+    # Cabeçalho: "Preço CVE"
+    html += "<tr><th>Empresa</th><th style=\"text-align:right\">Data</th><th style=\"text-align:right\">Preço CVE</th><th style=\"text-align:right\">Variação</th></tr>\n"
+    
+    for sigla, data, cot_raw, var_raw in cotacoes:
         info = empresas_info.get(sigla, {"sigla_exibida": sigla, "logo_url": ""})
         sigla_exibida = info["sigla_exibida"]
         logo_url = info.get("logo_url", "")
         
         if logo_url:
-            celula_empresa = f'<img src="{logo_url}" alt="{sigla_exibida}" style="height:24px; width:auto; vertical-align:middle; margin-right:8px;"> {sigla_exibida}'
+            celula_empresa = f'<div style="white-space: nowrap;"><img src="{logo_url}" alt="{sigla_exibida}" style="height:24px; width:auto; vertical-align:middle; margin-right:4px;">{sigla_exibida}</div>'
         else:
             celula_empresa = sigla_exibida
         
-        # Formatar valor com separador de milhar e unidade CVE
+        # Formatar preço: separador de milhar, sem "CVE"
         try:
             valor_num = float(cot_raw)
             if valor_num.is_integer():
                 valor_formatado = f"{int(valor_num):,}".replace(",", ".")
             else:
                 valor_formatado = f"{valor_num:,.2f}".replace(",", ".")
-            cot_cell = f"{valor_formatado} CVE"
+            cot_cell = valor_formatado
         except:
-            cot_cell = f"{cot_raw} CVE"
+            cot_cell = cot_raw
+        cot_cell = f'<div style="text-align: right;">{cot_cell}</div>'
         
-        # Variação com seta e cor
-        var_clean = var.replace('%', '').strip()
+        # Variação com duas casas decimais e seta colorida
+        var_formatada = formatar_variacao(var_raw)
+        var_clean = var_formatada.replace('%', '').strip()
         is_positive = False
         is_negative = False
         try:
@@ -141,11 +173,12 @@ def formatar_html(cotacoes):
             seta = "➡️"
             cor = "gray"
         
-        variacao_html = f'<font color="{cor}">{seta} {var}</font>'
+        variacao_html = f'<div style="text-align: right;"><font color="{cor}">{seta} {var_formatada}</font></div>'
+        data_html = f'<div style="text-align: right;">{data}</div>'
         
         html += f"<tr>\n"
         html += f"<td>{celula_empresa}</td>\n"
-        html += f"<td>{data}</td>\n"
+        html += f"<td>{data_html}</td>\n"
         html += f"<td>{cot_cell}</td>\n"
         html += f"<td>{variacao_html}</td>\n"
         html += f"</tr>\n"
@@ -155,14 +188,14 @@ def formatar_html(cotacoes):
     return html
 
 # -------------------------------
-# PUBLICAR POST DIRETAMENTE (NÃO RASCUNHO)
+# PUBLICAR POST (DIRECTO, NÃO RASCUNHO)
 # -------------------------------
 def publicar_post(usuario, senha_app, titulo, conteudo):
     client = Client("https://fiscocaboverde.com/xmlrpc.php", usuario, senha_app)
     post = WordPressPost()
     post.title = titulo
     post.content = conteudo
-    post.post_status = 'publish'   # Publica imediatamente
+    post.post_status = 'publish'
     post.terms_names = {
         'category': ['NOTÍCIAS & ATUALIZAÇÕES'],
         'post_tag': ['bvc', 'cotação']
@@ -194,7 +227,7 @@ def main():
         senha_app = getpass("Application Password (16 caracteres): ")
     
     conteudo_html = formatar_html(cotacoes)
-    titulo_post = f"Cotações BVC - {datetime.now().strftime('%d/%m/%Y')}"
+    titulo_post = f"Cotações BVC - {datetime.now().strftime('%d/%m/%y')}"
     
     print("📝 A publicar post no WordPress...")
     post_id = publicar_post(usuario, senha_app, titulo_post, conteudo_html)
@@ -202,9 +235,6 @@ def main():
     print(f"📄 ID do post: {post_id}")
     print(f"🔗 Ver post: https://fiscocaboverde.com/?p={post_id}")
 
-# -------------------------------
-# PONTO DE ENTRADA COM TRATAMENTO DE EXCEÇÕES
-# -------------------------------
 if __name__ == "__main__":
     try:
         main()
