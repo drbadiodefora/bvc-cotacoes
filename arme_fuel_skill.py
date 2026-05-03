@@ -110,7 +110,7 @@ def gerar_html(atual, variacoes, mes, ano):
     tabela += '<thead>\n'
     tabela += '<tr>\n'
     tabela += '<th>Produto</th>\n'
-    tabela += '<th>Preço Máximo (ECV/Unid.)</th>\n'
+    tabela += '<th>Preço ECV</th>\n'
     tabela += '<th>Variação (%)</th>\n'
     tabela += '<th>Diferença (ECV)</th>\n'
     tabela += '</tr>\n</thead>\n<tbody>\n'
