@@ -105,40 +105,47 @@ def gerar_html(atual, variacoes, mes, ano):
     ordem = ["Gasolina", "Gasóleo Normal", "Petróleo", "Butano Granel",
              "Gasóleo Eletricidade", "Gasóleo Marinha", "Fuel 380", "Fuel 180"]
     
-    # Montagem da tabela
+    # Constrói a tabela com escape adequado
     tabela = '<table border="1" cellpadding="5" cellspacing="0" style="border-collapse: collapse;">\n'
-    tabela += "<td><th>Produto</th><th>Preço Máximo (ECV/Unid.)</th><th>Variação (%)</th><th>Diferença (ECV)</th></tr>\n"
+    tabela += '<thead>\n'
+    tabela += '<tr>\n'
+    tabela += '<th>Produto</th>\n'
+    tabela += '<th>Preço Máximo (ECV/Unid.)</th>\n'
+    tabela += '<th>Variação (%)</th>\n'
+    tabela += '<th>Diferença (ECV)</th>\n'
+    tabela += '</tr>\n</thead>\n<tbody>\n'
     for prod in ordem:
         if prod in atual:
             preco = atual[prod].replace('.', ',')
             var = variacoes.get(prod, {'perc': '—', 'diff': '—'})
-            tabela += f"<tr>\n"
-            tabela += f"<td>{prod}</td>\n"
-            tabela += f"<td>{preco}</td>\n"
-            tabela += f"<td>{var['perc']}</td>\n"
-            tabela += f"<td>{var['diff']}</td>\n"
-            tabela += f"</tr>\n"
+            tabela += '<tr>\n'
+            tabela += f'<td>{prod}</td>\n'
+            tabela += f'<td>{preco}</td>\n'
+            tabela += f'<td>{var["perc"]}</td>\n'
+            tabela += f'<td>{var["diff"]}</td>\n'
+            tabela += '</tr>\n'
         else:
-            tabela += f"<tr>\n"
-            tabela += f"<td>{prod}</td>\n"
-            tabela += "<td>—</td>\n"
-            tabela += "<td>—</td>\n"
-            tabela += "<td>—</td>\n"
-            tabela += f"</tr>\n"
-    tabela += "<td>\n"
+            tabela += '<tr>\n'
+            tabela += f'<td>{prod}</td>\n'
+            tabela += '<td>—</td>\n'
+            tabela += '<td>—</td>\n'
+            tabela += '<td>—</td>\n'
+            tabela += '</tr>\n'
+    tabela += '</tbody>\n</table>\n'   # Fecho correcto da tabela
     
-    # Preços das garrafas (fixos, conforme o template)
+    # Preços das garrafas
     butano_granel = atual.get('Butano Granel', '0').replace('.', ',')
-    garrafas = """
+    garrafas = f"""
 <ul>
     <li>Garrafa de 3 Kg: 411,00 ECV</li>
     <li>Garrafa de 6 Kg: 866,00 ECV</li>
     <li>Garrafa de 12,5 Kg: 1.804,00 ECV</li>
     <li>Garrafa de 55 Kg: 7.937,00 ECV</li>
-    <li>Gás a Granel (Kg): {butano} ECV</li>
+    <li>Gás a Granel (Kg): {butano_granel} ECV</li>
 </ul>
-""".replace("{butano}", butano_granel)
+"""
     
+    # HTML final (sem misturar tabela com parágrafos)
     html = f"""
 <p>A Agência Reguladora Multissetorial da Economia (ARME) atualizou os preços máximos de venda dos combustíveis que vigoram entre {data_vigor}.</p>
 
@@ -159,7 +166,6 @@ def gerar_html(atual, variacoes, mes, ano):
 <p><em>Fonte: Agência Reguladora Multissetorial da Economia (ARME) – Tabela de Novos Preços Máximos de {data_vigor}</em></p>
 """
     return html
-
 def publicar_rascunho(titulo, conteudo):
     client = Client("https://fiscocaboverde.com/xmlrpc.php", WP_USER, WP_PASS)
     post = WordPressPost()
