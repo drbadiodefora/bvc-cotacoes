@@ -3,14 +3,13 @@
 # Gera rascunho no WordPress.com com tabela, logos e setas
 # ============================================================
 
-# 1. Correção para Python 3.12+ (problema do collections.Iterable)
 import collections
 import collections.abc
+import sys
+
+# Correção para Python 3.12+ (problema do collections.Iterable)
 if not hasattr(collections, 'Iterable'):
     collections.Iterable = collections.abc.Iterable
-
-# 2. Instalar dependências (no Colab já tem requests e bs4, mas garantimos)
-!pip install requests beautifulsoup4 python-wordpress-xmlrpc -q
 
 import requests
 from bs4 import BeautifulSoup
@@ -19,11 +18,11 @@ from datetime import datetime
 from wordpress_xmlrpc import Client, WordPressPost
 from wordpress_xmlrpc.methods.posts import NewPost
 from getpass import getpass
+import os
 
 # -------------------------------
 # CONFIGURAÇÃO DAS EMPRESAS
 # -------------------------------
-# Mapeamento: chave = sigla que vem do site da BVC
 empresas_info = {
     "BCA": {
         "sigla_exibida": "BCA",
@@ -156,7 +155,7 @@ def criar_rascunho(usuario, senha_app, titulo, conteudo):
     post.title = titulo
     post.content = conteudo
     post.post_status = 'draft'       # Rascunho
-    # post.terms_names = {'category': ['Cotações']}  # Descomente se existir a categoria
+    # post.terms_names = {'category': ['Cotações']}  # Descomente se existir
     return client.call(NewPost(post))
 
 # -------------------------------
@@ -164,11 +163,7 @@ def criar_rascunho(usuario, senha_app, titulo, conteudo):
 # -------------------------------
 def main():
     print("🔍 A obter cotações da BVC...")
-    try:
-        cotacoes = obter_cotacoes()
-    except Exception as e:
-        print(f"❌ Erro na extração: {e}")
-        return
+    cotacoes = obter_cotacoes()
     
     if not cotacoes:
         print("⚠️ Nenhuma cotação encontrada.")
@@ -179,21 +174,30 @@ def main():
         sigla_exib = empresas_info.get(sigla, {}).get("sigla_exibida", sigla)
         print(f"   {sigla_exib}: {cot} CVE ({var}) em {data}")
     
-    print("\n🔐 Autenticação no WordPress.com")
-    usuario = input("Utilizador (email ou username): ")
-    senha_app = getpass("Application Password (16 caracteres): ")
+    # Usar credenciais das variáveis de ambiente (GitHub Actions) ou pedir ao utilizador (Colab)
+    usuario = os.environ.get("WP_USERNAME")
+    senha_app = os.environ.get("WP_PASSWORD")
+    
+    if not usuario or not senha_app:
+        print("\n🔐 Credenciais do WordPress não encontradas nas variáveis de ambiente.")
+        usuario = input("Utilizador (email ou username): ")
+        senha_app = getpass("Application Password (16 caracteres): ")
     
     conteudo_html = formatar_html(cotacoes)
     titulo_post = f"Cotações BVC - {datetime.now().strftime('%d/%m/%Y')}"
     
     print("📝 A criar rascunho no WordPress...")
-    try:
-        post_id = criar_rascunho(usuario, senha_app, titulo_post, conteudo_html)
-        print(f"\n✅ Rascunho criado com sucesso!")
-        print(f"📄 ID do post: {post_id}")
-        print(f"✏️ Editar: https://fiscocaboverde.com/wp-admin/post.php?post={post_id}&action=edit")
-    except Exception as e:
-        print(f"❌ Erro ao criar rascunho: {e}")
+    post_id = criar_rascunho(usuario, senha_app, titulo_post, conteudo_html)
+    print(f"\n✅ Rascunho criado com sucesso!")
+    print(f"📄 ID do post: {post_id}")
+    print(f"✏️ Editar: https://fiscocaboverde.com/wp-admin/post.php?post={post_id}&action=edit")
 
+# -------------------------------
+# PONTO DE ENTRADA COM TRATAMENTO DE EXCEÇÕES
+# -------------------------------
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        print(f"FATAL: {e}")
+        sys.exit(1)
