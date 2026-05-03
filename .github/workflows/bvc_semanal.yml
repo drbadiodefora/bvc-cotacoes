@@ -1,0 +1,28 @@
+name: BVC - Cotações semanais
+
+on:
+  schedule:
+    # Executa todas às segundas-feiras às 8:00 UTC (7:00 em Cabo Verde)
+    - cron: '0 8 * * 1'
+  workflow_dispatch:   # permite executar manualmente a partir do GitHub
+
+jobs:
+  rodar-script:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Obter código do repositório
+        uses: actions/checkout@v4
+
+      - name: Instalar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Instalar dependências
+        run: pip install requests beautifulsoup4 python-wordpress-xmlrpc
+
+      - name: Executar skill BVC
+        env:
+          WP_USERNAME: ${{ secrets.WP_USERNAME }}
+          WP_PASSWORD: ${{ secrets.WP_PASSWORD }}
+        run: python bvc_skill.py
