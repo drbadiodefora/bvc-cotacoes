@@ -1,0 +1,22 @@
+name: ARME - Preços combustíveis (mensal)
+
+on:
+  schedule:
+    - cron: '0 6 1 * *'          # Primeiro dia do mês às 6h (Cabo Verde)
+      timezone: "Atlantic/Cape_Verde"
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - run: pip install requests wordpress-xmlrpc
+      - name: Executar skill ARME
+        env:
+          WP_USERNAME: ${{ secrets.WP_USERNAME }}
+          WP_PASSWORD: ${{ secrets.WP_PASSWORD }}
+        run: python arme_fuel_prices_historical.py
