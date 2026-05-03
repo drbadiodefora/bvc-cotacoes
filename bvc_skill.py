@@ -1,16 +1,13 @@
 # ============================================================
 # SKILL BVC - Cotações da Bolsa de Valores de Cabo Verde
-# Gera rascunho no WordPress.com com tabela, logos e setas
+# Gera rascunho no WordPress.com com tabela, logos, setas,
+# categoria "NOTÍCIAS & ATUALIZAÇÕES" e tags "bvc", "cotação"
 # ============================================================
 
 import collections
 import collections.abc
 import sys
-
-# Correção para Python 3.12+ (problema do collections.Iterable)
-if not hasattr(collections, 'Iterable'):
-    collections.Iterable = collections.abc.Iterable
-
+import os
 import requests
 from bs4 import BeautifulSoup
 import re
@@ -18,7 +15,10 @@ from datetime import datetime
 from wordpress_xmlrpc import Client, WordPressPost
 from wordpress_xmlrpc.methods.posts import NewPost
 from getpass import getpass
-import os
+
+# Correção para Python 3.12+ (problema do collections.Iterable)
+if not hasattr(collections, 'Iterable'):
+    collections.Iterable = collections.abc.Iterable
 
 # -------------------------------
 # CONFIGURAÇÃO DAS EMPRESAS
@@ -52,7 +52,6 @@ def obter_cotacoes():
     response.raise_for_status()
     soup = BeautifulSoup(response.text, "html.parser")
     
-    # Procurar a tabela de "Actividades de Mercado"
     tabela = None
     for table in soup.find_all("table"):
         if table.find(string=re.compile("Título", re.I)) and table.find(string=re.compile("Data", re.I)):
@@ -66,7 +65,6 @@ def obter_cotacoes():
         raise Exception("Não foi possível encontrar a tabela de cotações.")
     
     linhas = tabela.find_all("tr")
-    # Identificar a linha que contém os cabeçalhos
     cabecalho_idx = 0
     for i, linha in enumerate(linhas):
         textos = [c.get_text(strip=True) for c in linha.find_all(["th", "td"])]
@@ -101,13 +99,11 @@ def formatar_html(cotacoes):
         sigla_exibida = info["sigla_exibida"]
         logo_url = info.get("logo_url", "")
         
-        # Célula da empresa: logótipo + sigla
         if logo_url:
             celula_empresa = f'<img src="{logo_url}" alt="{sigla_exibida}" style="height:24px; width:auto; vertical-align:middle; margin-right:8px;"> {sigla_exibida}'
         else:
             celula_empresa = sigla_exibida
         
-        # Analisar variação para definir seta e cor
         var_clean = var.replace('%', '').strip()
         is_positive = False
         is_negative = False
@@ -147,15 +143,19 @@ def formatar_html(cotacoes):
     return html
 
 # -------------------------------
-# PUBLICAR RASCUNHO NO WORDPRESS (XML-RPC)
+# PUBLICAR RASCUNHO NO WORDPRESS COM CATEGORIA E TAGS
 # -------------------------------
 def criar_rascunho(usuario, senha_app, titulo, conteudo):
     client = Client("https://fiscocaboverde.com/xmlrpc.php", usuario, senha_app)
     post = WordPressPost()
     post.title = titulo
     post.content = conteudo
-    post.post_status = 'draft'       # Rascunho
-    # post.terms_names = {'category': ['Cotações']}  # Descomente se existir
+    post.post_status = 'draft'
+    # Categoria e tags
+    post.terms_names = {
+        'category': ['NOTÍCIAS & ATUALIZAÇÕES'],
+        'post_tag': ['bvc', 'cotação']
+    }
     return client.call(NewPost(post))
 
 # -------------------------------
@@ -174,7 +174,6 @@ def main():
         sigla_exib = empresas_info.get(sigla, {}).get("sigla_exibida", sigla)
         print(f"   {sigla_exib}: {cot} CVE ({var}) em {data}")
     
-    # Usar credenciais das variáveis de ambiente (GitHub Actions) ou pedir ao utilizador (Colab)
     usuario = os.environ.get("WP_USERNAME")
     senha_app = os.environ.get("WP_PASSWORD")
     
