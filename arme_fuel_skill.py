@@ -1,4 +1,4 @@
-# arme_fuel_skill.py
+# arme_fuel_skill.py (versão com template completo)
 import os, re, requests
 from datetime import datetime
 from wordpress_xmlrpc import Client, WordPressPost
@@ -10,6 +10,7 @@ if not WP_USER or not WP_PASS:
     print("❌ Credenciais em falta.")
     exit(1)
 
+# Base histórica (inclui Maio 2026)
 PRECOS_HISTORICOS = {
     2026: {
         5: {
@@ -72,8 +73,7 @@ def obter_precos_web(ano, mes):
 
 def obter_precos(ano, mes):
     web = obter_precos_web(ano, mes)
-    if web:
-        return web
+    if web: return web
     if ano in PRECOS_HISTORICOS and mes in PRECOS_HISTORICOS[ano]:
         return PRECOS_HISTORICOS[ano][mes].copy()
     return None
@@ -98,21 +98,26 @@ def calcular_variacoes(atual, anterior):
     return variacoes
 
 def gerar_html(atual, variacoes, mes, ano):
-    meses = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"]
+    meses = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+             "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
     mes_nome = meses[mes-1]
-    ordem = ["Gasolina","Gasóleo Normal","Petróleo","Butano Granel","Gasóleo Eletricidade","Gasóleo Marinha","Fuel 380","Fuel 180"]
-    tabela = '<table border="1" cellpadding="5">\n'
-    tabela += "<tr><th>Produto</th><th>Preço (ECV/Unid.)</th><th>Variação (%)</th><th>Diferença (ECV)</th></tr>\n"
+    data_vigor = f"1 a 31 de {mes_nome} {ano}"
+    ordem = ["Gasolina", "Gasóleo Normal", "Petróleo", "Butano Granel",
+             "Gasóleo Eletricidade", "Gasóleo Marinha", "Fuel 380", "Fuel 180"]
+    
+    # Montagem da tabela
+    tabela = '<table border="1" cellpadding="5" cellspacing="0" style="border-collapse: collapse;">\n'
+    tabela += "<td><th>Produto</th><th>Preço Máximo (ECV/Unid.)</th><th>Variação (%)</th><th>Diferença (ECV)</th></tr>\n"
     for prod in ordem:
         if prod in atual:
             preco = atual[prod].replace('.', ',')
-            var = variacoes.get(prod, {'perc':'—','diff':'—'})
+            var = variacoes.get(prod, {'perc': '—', 'diff': '—'})
             tabela += f"<tr>\n"
             tabela += f"<td>{prod}</td>\n"
             tabela += f"<td>{preco}</td>\n"
             tabela += f"<td>{var['perc']}</td>\n"
             tabela += f"<td>{var['diff']}</td>\n"
-            tabela += f"</td>\n"
+            tabela += f"</tr>\n"
         else:
             tabela += f"<tr>\n"
             tabela += f"<td>{prod}</td>\n"
@@ -120,14 +125,11 @@ def gerar_html(atual, variacoes, mes, ano):
             tabela += "<td>—</td>\n"
             tabela += "<td>—</td>\n"
             tabela += f"</tr>\n"
-    tabela += "</table>\n"
-    butano = atual.get('Butano Granel', '0').replace('.', ',')
-    return f"""
-<p>A ARME atualizou os preços dos combustíveis para 1 a 31 de {mes_nome} {ano}.</p>
-<p>Regista-se uma tendência de aumento na maioria dos produtos.</p>
-<h3>Tabela de Preços ao Consumidor</h3>
-{tabela}
-<h3>Preços do Gás Butano por Embalagem</h3>
+    tabela += "<td>\n"
+    
+    # Preços das garrafas (fixos, conforme o template)
+    butano_granel = atual.get('Butano Granel', '0').replace('.', ',')
+    garrafas = """
 <ul>
     <li>Garrafa de 3 Kg: 411,00 ECV</li>
     <li>Garrafa de 6 Kg: 866,00 ECV</li>
@@ -135,10 +137,28 @@ def gerar_html(atual, variacoes, mes, ano):
     <li>Garrafa de 55 Kg: 7.937,00 ECV</li>
     <li>Gás a Granel (Kg): {butano} ECV</li>
 </ul>
+""".replace("{butano}", butano_granel)
+    
+    html = f"""
+<p>A Agência Reguladora Multissetorial da Economia (ARME) atualizou os preços máximos de venda dos combustíveis que vigoram entre {data_vigor}.</p>
+
+<p>De acordo com a nova tabela, regista-se uma tendência de aumento nos preços da maioria dos produtos petrolíferos em comparação com o mês passado, com exceção do Gás Butano, que mantém o seu valor inalterado.</p>
+
+<h3>Tabela de Preços ao Consumidor</h3>
+<p>Abaixo apresentamos os valores fixados para a venda a retalho, bem como a variação percentual e nominal em relação ao período anterior:</p>
+
+{tabela}
+
+<h3>Preços do Gás Butano por Embalagem</h3>
+<p>Para as famílias e empresas que utilizam gás butano, os preços das garrafas (já com IVA incluído) permanecem os mesmos que vigoraram em abril:</p>
+{garrafas}
+
 <h3>Estrutura de Custos</h3>
-<p>Preço final inclui custos de importação, logística, distribuição, IVA e outras taxas.</p>
-<p><em>Fonte: ARME</em></p>
+<p>O preço final de venda ao público é composto por diversos fatores regulados pela ARME, incluindo os Custos de Importação (CP), Custos de Logística (CU GSL), Custos de Distribuição (MMUD), além do IVA e outras taxas específicas aplicáveis ao setor.</p>
+
+<p><em>Fonte: Agência Reguladora Multissetorial da Economia (ARME) – Tabela de Novos Preços Máximos de {data_vigor}</em></p>
 """
+    return html
 
 def publicar_rascunho(titulo, conteudo):
     client = Client("https://fiscocaboverde.com/xmlrpc.php", WP_USER, WP_PASS)
@@ -146,26 +166,34 @@ def publicar_rascunho(titulo, conteudo):
     post.title = titulo
     post.content = conteudo
     post.post_status = 'draft'
-    post.terms_names = {'category': ['NOTÍCIAS & ATUALIZAÇÕES'], 'post_tag': ['combustíveis','ARME']}
+    post.terms_names = {
+        'category': ['NOTÍCIAS & ATUALIZAÇÕES'],
+        'post_tag': ['combustíveis', 'ARME']
+    }
     return client.call(NewPost(post))
 
 def main():
     hoje = datetime.now()
     ano, mes = hoje.year, hoje.month
+    print(f"🔍 A obter preços de {mes}/{ano}...")
     atuais = obter_precos(ano, mes)
     if not atuais:
-        print("❌ Preços não disponíveis")
+        print("❌ Preços do mês actual não disponíveis")
         return
     mes_ant = mes-1 if mes>1 else 12
     ano_ant = ano if mes>1 else ano-1
     anteriores = obter_precos(ano_ant, mes_ant)
     variacoes = calcular_variacoes(atuais, anteriores) if anteriores else {}
-    meses_nomes = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"]
+    
+    meses_nomes = ["janeiro","fevereiro","março","abril","maio","junho",
+                   "julho","agosto","setembro","outubro","novembro","dezembro"]
     titulo = f"ARME atualiza preços máximos dos combustíveis para {meses_nomes[mes-1]} {ano}"
     html = gerar_html(atuais, variacoes, mes, ano)
+    
+    print("📝 A criar rascunho no WordPress...")
     post_id = publicar_rascunho(titulo, html)
-    print(f"✅ Rascunho criado ID {post_id}")
-    print(f"Editar: https://fiscocaboverde.com/wp-admin/post.php?post={post_id}&action=edit")
+    print(f"✅ Rascunho criado! ID: {post_id}")
+    print(f"🔗 Editar: https://fiscocaboverde.com/wp-admin/post.php?post={post_id}&action=edit")
 
 if __name__ == "__main__":
     main()
