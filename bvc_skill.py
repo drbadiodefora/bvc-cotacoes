@@ -1,6 +1,6 @@
 # ============================================================
 # SKILL BVC - Cotações da Bolsa de Valores de Cabo Verde
-# Gera rascunho no WordPress.com com tabela, logos, setas,
+# Publica diretamente no WordPress.com com tabela, logos, setas,
 # categoria "NOTÍCIAS & ATUALIZAÇÕES" e tags "bvc", "cotação"
 # ============================================================
 
@@ -16,7 +16,7 @@ from wordpress_xmlrpc import Client, WordPressPost
 from wordpress_xmlrpc.methods.posts import NewPost
 from getpass import getpass
 
-# Correção para Python 3.12+ (problema do collections.Iterable)
+# Correção para Python 3.12+
 if not hasattr(collections, 'Iterable'):
     collections.Iterable = collections.abc.Iterable
 
@@ -78,10 +78,10 @@ def obter_cotacoes():
         if len(cols) >= 4:
             sigla = cols[0].get_text(strip=True)
             data = cols[1].get_text(strip=True)
-            cotacao = cols[2].get_text(strip=True).replace(',', '.')
+            cotacao_raw = cols[2].get_text(strip=True).replace(',', '.')
             variacao = cols[3].get_text(strip=True)
             if sigla:
-                cotacoes.append((sigla, data, cotacao, variacao))
+                cotacoes.append((sigla, data, cotacao_raw, variacao))
     return cotacoes
 
 # -------------------------------
@@ -92,9 +92,9 @@ def formatar_html(cotacoes):
         return "<p>⚠️ Nenhuma cotação disponível hoje.</p>"
     
     html = '<table border="1" cellpadding="5" cellspacing="0" style="border-collapse: collapse; width:100%;">\n'
-    html += "<tr><th>Empresa</th><th>Data da Cotação</th><th>Preço (CVE)</th><th>Variação</th></tr>\n"
+    html += "<tr><th>Empresa</th><th>Data da Cotação</th><th>Preço</th><th>Variação</th></tr>\n"
     
-    for sigla, data, cot, var in cotacoes:
+    for sigla, data, cot_raw, var in cotacoes:
         info = empresas_info.get(sigla, {"sigla_exibida": sigla, "logo_url": ""})
         sigla_exibida = info["sigla_exibida"]
         logo_url = info.get("logo_url", "")
@@ -104,6 +104,18 @@ def formatar_html(cotacoes):
         else:
             celula_empresa = sigla_exibida
         
+        # Formatar valor com separador de milhar e unidade CVE
+        try:
+            valor_num = float(cot_raw)
+            if valor_num.is_integer():
+                valor_formatado = f"{int(valor_num):,}".replace(",", ".")
+            else:
+                valor_formatado = f"{valor_num:,.2f}".replace(",", ".")
+            cot_cell = f"{valor_formatado} CVE"
+        except:
+            cot_cell = f"{cot_raw} CVE"
+        
+        # Variação com seta e cor
         var_clean = var.replace('%', '').strip()
         is_positive = False
         is_negative = False
@@ -134,7 +146,7 @@ def formatar_html(cotacoes):
         html += f"<tr>\n"
         html += f"<td>{celula_empresa}</td>\n"
         html += f"<td>{data}</td>\n"
-        html += f"<td>{cot}</td>\n"
+        html += f"<td>{cot_cell}</td>\n"
         html += f"<td>{variacao_html}</td>\n"
         html += f"</tr>\n"
     
@@ -143,15 +155,14 @@ def formatar_html(cotacoes):
     return html
 
 # -------------------------------
-# PUBLICAR RASCUNHO NO WORDPRESS COM CATEGORIA E TAGS
+# PUBLICAR POST DIRETAMENTE (NÃO RASCUNHO)
 # -------------------------------
-def criar_rascunho(usuario, senha_app, titulo, conteudo):
+def publicar_post(usuario, senha_app, titulo, conteudo):
     client = Client("https://fiscocaboverde.com/xmlrpc.php", usuario, senha_app)
     post = WordPressPost()
     post.title = titulo
     post.content = conteudo
-    post.post_status = 'draft'
-    # Categoria e tags
+    post.post_status = 'publish'   # Publica imediatamente
     post.terms_names = {
         'category': ['NOTÍCIAS & ATUALIZAÇÕES'],
         'post_tag': ['bvc', 'cotação']
@@ -185,11 +196,11 @@ def main():
     conteudo_html = formatar_html(cotacoes)
     titulo_post = f"Cotações BVC - {datetime.now().strftime('%d/%m/%Y')}"
     
-    print("📝 A criar rascunho no WordPress...")
-    post_id = criar_rascunho(usuario, senha_app, titulo_post, conteudo_html)
-    print(f"\n✅ Rascunho criado com sucesso!")
+    print("📝 A publicar post no WordPress...")
+    post_id = publicar_post(usuario, senha_app, titulo_post, conteudo_html)
+    print(f"\n✅ Post publicado com sucesso!")
     print(f"📄 ID do post: {post_id}")
-    print(f"✏️ Editar: https://fiscocaboverde.com/wp-admin/post.php?post={post_id}&action=edit")
+    print(f"🔗 Ver post: https://fiscocaboverde.com/?p={post_id}")
 
 # -------------------------------
 # PONTO DE ENTRADA COM TRATAMENTO DE EXCEÇÕES
