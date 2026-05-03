@@ -2,7 +2,6 @@ name: BVC - Cotações semanais
 
 on:
   schedule:
-    # Executa todas as segundas-feiras às 6:00, fuso de Cabo Verde (UTC-1)
     - cron: '0 6 * * 1'
       timezone: "Atlantic/Cape_Verde"
   workflow_dispatch:
@@ -12,15 +11,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Obter código do repositório
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Instalar Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.10'
 
       - name: Instalar dependências
         run: pip install requests beautifulsoup4 python-wordpress-xmlrpc
+
+      - name: Diagnosticar (listar arquivos)
+        run: ls -la
 
       - name: Executar skill BVC
         env:
