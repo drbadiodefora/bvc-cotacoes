@@ -19,4 +19,4 @@ jobs:
         env:
           WP_USERNAME: ${{ secrets.WP_USERNAME }}
           WP_PASSWORD: ${{ secrets.WP_PASSWORD }}
-        run: python bvc_skill.py
+        run: pip install requests beautifulsoup4 python-wordpress-xmlrpc
