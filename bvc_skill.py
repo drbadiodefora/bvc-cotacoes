@@ -131,7 +131,7 @@ def criar_rascunho(titulo, conteudo):
     post = WordPressPost()
     post.title = titulo
     post.content = conteudo
-    post.post_status = 'draft'   # altere para 'publish' se quiser publicação automática
+    post.post_status = 'publish'   # altere para 'publish' se quiser publicação automática
     post.terms_names = {
         'category': ['NOTÍCIAS & ATUALIZAÇÕES'],
         'post_tag': ['bvc', 'cotação']
