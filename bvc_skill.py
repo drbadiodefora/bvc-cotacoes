@@ -41,7 +41,6 @@ def obter_cotacoes():
     resp.raise_for_status()
     soup = BeautifulSoup(resp.text, "html.parser")
     
-    # Localizar tabela de cotações
     tabela = None
     for table in soup.find_all("table"):
         if table.find(string=re.compile("Título", re.I)) and table.find(string=re.compile("Data", re.I)):
@@ -67,28 +66,29 @@ def obter_cotacoes():
         cols = linha.find_all("td")
         if len(cols) >= 4:
             sigla = cols[0].get_text(strip=True)
-            data = cols[1].get_text(strip=True)
+            data_bruta = cols[1].get_text(strip=True)
             cotacao = cols[2].get_text(strip=True).replace(',', '.')
             variacao = cols[3].get_text(strip=True)
             if sigla:
-                cotacoes.append((sigla, data, cotacao, variacao))
+                cotacoes.append((sigla, data_bruta, cotacao, variacao))
     return cotacoes
 
 def formatar_html(cotacoes):
     if not cotacoes:
         return "<p>⚠️ Nenhuma cotação disponível hoje.</p>"
     
-    data_atual = datetime.now().strftime("%d/%m/%Y")
+    data_hoje = datetime.now().strftime("%d/%m/%Y")
     
-    # Parágrafos separados conforme solicitado
     html = f'<p>Bom dia seguidor/a.</p>\n'
-    html += f'<p>Seguem abaixo as cotações das empresas no mercado de Cabo Verde, para o dia {data_atual}:</p>\n\n'
+    html += f'<p>Seguem abaixo as cotações das empresas no mercado de Cabo Verde, para o dia {data_hoje}:</p>\n\n'
     
-    # Tabela
     html += '<table border="1" cellpadding="5" cellspacing="0" style="border-collapse: collapse; width:100%;">\n'
     html += "<tr><th>Empresa</th><th style=\"text-align:right\">Data</th><th style=\"text-align:right\">Preço CVE</th><th style=\"text-align:right\">Variação</th></tr>\n"
     
-    for sigla, data, cot, var in cotacoes:
+    for sigla, data_bruta, cot, var in cotacoes:
+        # LIMPEZA DA DATA: Pega apenas a parte antes do espaço (remove HH:MM:SS)
+        data_limpa = data_bruta.split(' ')[0]
+        
         info = empresas_info.get(sigla, {"sigla_exibida": sigla, "logo_url": ""})
         sigla_exib = info["sigla_exibida"]
         logo = info.get("logo_url", "")
@@ -98,7 +98,7 @@ def formatar_html(cotacoes):
         else:
             celula_empresa = sigla_exib
         
-        # Formatação da variação com seta e cor
+        # Formatação da variação
         var_num = re.sub(r'[^0-9\-+.]', '', var)
         try:
             num = float(var_num)
@@ -112,7 +112,7 @@ def formatar_html(cotacoes):
             seta, cor = "➡️", "gray"
         
         variacao_html = f'<div style="text-align: right;"><font color="{cor}">{seta} {var}</font></div>'
-        data_html = f'<div style="text-align: right;">{data}</div>'
+        data_html = f'<div style="text-align: right;">{data_limpa}</div>'
         cot_html = f'<div style="text-align: right;">{cot}</div>'
         
         html += f"<tr>\n"
@@ -126,12 +126,12 @@ def formatar_html(cotacoes):
     html += '<p>📌 <em>Fonte: <a href="https://bvc.cv/">Bolsa de Valores de Cabo Verde</a></em></p>'
     return html
 
-def criar_rascunho(titulo, conteudo):
+def publicar_no_wordpress(titulo, conteudo):
     client = Client("https://fiscocaboverde.com/xmlrpc.php", WP_USER, WP_PASS)
     post = WordPressPost()
     post.title = titulo
     post.content = conteudo
-    post.post_status = 'publish'   # altere para 'publish' se quiser publicação automática
+    post.post_status = 'publish'  # Alterado para publicação automática
     post.terms_names = {
         'category': ['NOTÍCIAS & ATUALIZAÇÕES'],
         'post_tag': ['bvc', 'cotação']
@@ -140,17 +140,25 @@ def criar_rascunho(titulo, conteudo):
 
 def main():
     print("🔍 Obtendo cotações da BVC...")
-    cotacoes = obter_cotacoes()
-    if not cotacoes:
-        print("⚠️ Nenhuma cotação encontrada.")
-        return
-    print(f"✅ {len(cotacoes)} empresas encontradas.")
-    conteudo = formatar_html(cotacoes)
-    titulo = f"Cotações BVC - {datetime.now().strftime('%d/%m/%y')}"
-    print("📝 A criar rascunho no WordPress...")
-    post_id = criar_rascunho(titulo, conteudo)
-    print(f"✅ Rascunho criado! ID: {post_id}")
-    print(f"🔗 Editar: https://fiscocaboverde.com/wp-admin/post.php?post={post_id}&action=edit")
+    try:
+        cotacoes = obter_cotacoes()
+        if not cotacoes:
+            print("⚠️ Nenhuma cotação encontrada.")
+            return
+        
+        print(f"✅ {len(cotacoes)} empresas encontradas.")
+        conteudo = formatar_html(cotacoes)
+        
+        # Título com data formatada d/m/Y
+        titulo = f"Cotações BVC - {datetime.now().strftime('%d/%m/%Y')}"
+        
+        print("🚀 Publicando no WordPress...")
+        post_id = publicar_no_wordpress(titulo, conteudo)
+        print(f"✅ Publicado com sucesso! ID: {post_id}")
+        print(f"🔗 Ver post: https://fiscocaboverde.com/?p={post_id}")
+        
+    except Exception as e:
+        print(f"❌ Erro: {e}")
 
 if __name__ == "__main__":
     main()
