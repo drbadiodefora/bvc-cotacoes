@@ -2,8 +2,8 @@ name: BVC - Cotações semanais
 
 on:
   schedule:
-    - cron: '0 6 * * 1'          # Segunda‑feira às 6h (Cabo Verde)
-      timezone: "Atlantic/Cape_Verde"
+    # 7:00 UTC corresponde às 6:00 de Cabo Verde (UTC-1)
+    - cron: '0 7 * * 1'
   workflow_dispatch:
 
 jobs:
